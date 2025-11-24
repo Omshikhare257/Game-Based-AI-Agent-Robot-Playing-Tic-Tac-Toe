@@ -160,6 +160,18 @@ class MinimaxAI:
         """Find the best move using Minimax with difficulty adjustment"""
         import random
         
+        # Get empty cells for easy mode
+        empty_cells = []
+        for i in range(3):
+            for j in range(3):
+                if board[i][j] == ' ':
+                    empty_cells.append((i, j))
+        
+        # Easy mode: random move
+        if self.difficulty == Difficulty.EASY:
+            return random.choice(empty_cells) if empty_cells else (-1, -1)
+        
+        # Find best moves using minimax
         best_val = -float('inf')
         best_moves = []
         board_copy = copy.deepcopy(board)
@@ -177,19 +189,14 @@ class MinimaxAI:
                     elif move_val == best_val:
                         best_moves.append((i, j))
         
-        # Adjust difficulty
-        if self.difficulty == Difficulty.EASY:
-            return random.choice(board_copy.get_empty_cells() if board_copy.get_empty_cells() else [(-1, -1)])
-        elif self.difficulty == Difficulty.MEDIUM:
-            if random.random() < 0.3 and board_copy.get_empty_cells():
-                return random.choice(board_copy.get_empty_cells())
+        # Medium mode: 30% chance of random move
+        if self.difficulty == Difficulty.MEDIUM:
+            if random.random() < 0.3 and empty_cells:
+                return random.choice(empty_cells)
             return random.choice(best_moves) if best_moves else (-1, -1)
-        else:  # HARD
-            return random.choice(best_moves) if best_moves else (-1, -1)
-    
-    def get_empty_cells(self):
-        """Get empty cells"""
-        return []
+        
+        # Hard mode: always best move
+        return random.choice(best_moves) if best_moves else (-1, -1)
 
 
 class GameStats:
@@ -214,7 +221,7 @@ class GameStats:
             try:
                 with open(self.stats_file, 'r') as f:
                     self.stats = json.load(f)
-            except:
+            except Exception:
                 pass
     
     def save_stats(self):
@@ -222,7 +229,7 @@ class GameStats:
         try:
             with open(self.stats_file, 'w') as f:
                 json.dump(self.stats, f)
-        except:
+        except Exception:
             pass
     
     def update_game(self, result, time_taken, difficulty):
@@ -233,7 +240,8 @@ class GameStats:
             self.stats['wins'] += 1
             self.stats['win_streak'] += 1
             self.stats['difficulty_wins'][difficulty] += 1
-            self.stats['best_time'] = min(self.stats['best_time'], time_taken)
+            if time_taken < self.stats['best_time']:
+                self.stats['best_time'] = time_taken
         elif result == 'L':
             self.stats['losses'] += 1
             self.stats['win_streak'] = 0
@@ -255,8 +263,22 @@ class TicTacToeGUI:
         
         # Themes
         self.themes = {
-            'dark': {'bg': '#1a1a2e', 'fg': '#ecf0f1', 'primary': '#16213e', 'accent': '#0f3460', 'win': '#2ecc71', 'lose': '#e74c3c'},
-            'light': {'bg': '#ecf0f1', 'fg': '#1a1a2e', 'primary': '#bdc3c7', 'accent': '#95a5a6', 'win': '#27ae60', 'lose': '#c0392b'}
+            'dark': {
+                'bg': '#1a1a2e',
+                'fg': '#ecf0f1',
+                'primary': '#16213e',
+                'accent': '#0f3460',
+                'win': '#2ecc71',
+                'lose': '#e74c3c'
+            },
+            'light': {
+                'bg': '#ecf0f1',
+                'fg': '#1a1a2e',
+                'primary': '#bdc3c7',
+                'accent': '#95a5a6',
+                'win': '#27ae60',
+                'lose': '#c0392b'
+            }
         }
         self.current_theme = 'dark'
         
@@ -300,15 +322,27 @@ class TicTacToeGUI:
         difficulty_frame = tk.Frame(top_bar, bg=self.get_theme_color('primary'))
         difficulty_frame.pack(side=tk.RIGHT, padx=20, pady=10)
         
-        tk.Label(difficulty_frame, text="Level:", font=('Arial', 10, 'bold'), 
-                bg=self.get_theme_color('primary'), fg=self.get_theme_color('fg')).pack(side=tk.LEFT, padx=5)
+        tk.Label(
+            difficulty_frame,
+            text="Level:",
+            font=('Arial', 10, 'bold'),
+            bg=self.get_theme_color('primary'),
+            fg=self.get_theme_color('fg')
+        ).pack(side=tk.LEFT, padx=5)
         
         self.difficulty_var = tk.StringVar(value="HARD")
         for diff in ['EASY', 'MEDIUM', 'HARD']:
-            tk.Radiobutton(difficulty_frame, text=diff, variable=self.difficulty_var, value=diff,
-                          font=('Arial', 9), bg=self.get_theme_color('primary'), fg=self.get_theme_color('fg'),
-                          selectcolor=self.get_theme_color('accent'),
-                          command=self.change_difficulty).pack(side=tk.LEFT, padx=3)
+            tk.Radiobutton(
+                difficulty_frame,
+                text=diff,
+                variable=self.difficulty_var,
+                value=diff,
+                font=('Arial', 9),
+                bg=self.get_theme_color('primary'),
+                fg=self.get_theme_color('fg'),
+                selectcolor=self.get_theme_color('accent'),
+                command=self.change_difficulty
+            ).pack(side=tk.LEFT, padx=3)
         
         # Content frame
         content = tk.Frame(main_frame, bg=self.get_theme_color('bg'))
@@ -318,33 +352,66 @@ class TicTacToeGUI:
         left_panel = tk.Frame(content, bg=self.get_theme_color('primary'), relief=tk.RAISED, bd=2)
         left_panel.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 20))
         
-        stats_title = tk.Label(left_panel, text="📊 STATS", font=('Arial', 14, 'bold'),
-                              bg=self.get_theme_color('primary'), fg=self.get_theme_color('accent'))
+        stats_title = tk.Label(
+            left_panel,
+            text="📊 STATS",
+            font=('Arial', 14, 'bold'),
+            bg=self.get_theme_color('primary'),
+            fg=self.get_theme_color('accent')
+        )
         stats_title.pack(pady=10)
         
-        self.stats_display = tk.Label(left_panel, text=self.get_stats_text(), 
-                                     font=('Arial', 10), bg=self.get_theme_color('primary'),
-                                     fg=self.get_theme_color('fg'), justify=tk.LEFT)
+        self.stats_display = tk.Label(
+            left_panel,
+            text=self.get_stats_text(),
+            font=('Arial', 10),
+            bg=self.get_theme_color('primary'),
+            fg=self.get_theme_color('fg'),
+            justify=tk.LEFT
+        )
         self.stats_display.pack(padx=15, pady=10)
         
         # Divider
-        tk.Frame(left_panel, height=2, bg=self.get_theme_color('accent')).pack(fill=tk.X, padx=10, pady=10)
+        tk.Frame(
+            left_panel,
+            height=2,
+            bg=self.get_theme_color('accent')
+        ).pack(fill=tk.X, padx=10, pady=10)
         
-        info_title = tk.Label(left_panel, text="ℹ️ INFO", font=('Arial', 12, 'bold'),
-                             bg=self.get_theme_color('primary'), fg=self.get_theme_color('accent'))
+        info_title = tk.Label(
+            left_panel,
+            text="ℹ️ INFO",
+            font=('Arial', 12, 'bold'),
+            bg=self.get_theme_color('primary'),
+            fg=self.get_theme_color('accent')
+        )
         info_title.pack(pady=10)
         
-        self.combo_label = tk.Label(left_panel, text=f"🔥 Combo: {self.current_combo}", 
-                                   font=('Arial', 11, 'bold'), bg=self.get_theme_color('primary'),
-                                   fg='#f39c12')
+        self.combo_label = tk.Label(
+            left_panel,
+            text=f"🔥 Combo: {self.current_combo}",
+            font=('Arial', 11, 'bold'),
+            bg=self.get_theme_color('primary'),
+            fg='#f39c12'
+        )
         self.combo_label.pack(pady=5)
         
-        self.timer_label = tk.Label(left_panel, text="⏱️ Time: 0s", font=('Arial', 10),
-                                   bg=self.get_theme_color('primary'), fg=self.get_theme_color('fg'))
+        self.timer_label = tk.Label(
+            left_panel,
+            text="⏱️ Time: 0s",
+            font=('Arial', 10),
+            bg=self.get_theme_color('primary'),
+            fg=self.get_theme_color('fg')
+        )
         self.timer_label.pack(pady=5)
         
-        self.status_label = tk.Label(left_panel, text="Your Turn (X)", font=('Arial', 11, 'bold'),
-                                    bg=self.get_theme_color('primary'), fg='#2ecc71')
+        self.status_label = tk.Label(
+            left_panel,
+            text="Your Turn (X)",
+            font=('Arial', 11, 'bold'),
+            bg=self.get_theme_color('primary'),
+            fg='#2ecc71'
+        )
         self.status_label.pack(pady=10)
         
         # Center panel - Game board
@@ -376,24 +443,60 @@ class TicTacToeGUI:
         button_frame = tk.Frame(left_panel, bg=self.get_theme_color('primary'))
         button_frame.pack(pady=20, padx=10, fill=tk.X)
         
-        new_game_btn = tk.Button(button_frame, text="🔄 NEW GAME", font=('Arial', 11, 'bold'),
-                                bg='#3498db', fg='white', padx=15, pady=10,
-                                command=self.reset_game, relief=tk.RAISED, bd=2)
+        new_game_btn = tk.Button(
+            button_frame,
+            text="🔄 NEW GAME",
+            font=('Arial', 11, 'bold'),
+            bg='#3498db',
+            fg='white',
+            padx=15,
+            pady=10,
+            command=self.reset_game,
+            relief=tk.RAISED,
+            bd=2
+        )
         new_game_btn.pack(fill=tk.X, pady=5)
         
-        stats_btn = tk.Button(button_frame, text="📈 VIEW STATS", font=('Arial', 11, 'bold'),
-                             bg='#9b59b6', fg='white', padx=15, pady=10,
-                             command=self.show_detailed_stats, relief=tk.RAISED, bd=2)
+        stats_btn = tk.Button(
+            button_frame,
+            text="📈 VIEW STATS",
+            font=('Arial', 11, 'bold'),
+            bg='#9b59b6',
+            fg='white',
+            padx=15,
+            pady=10,
+            command=self.show_detailed_stats,
+            relief=tk.RAISED,
+            bd=2
+        )
         stats_btn.pack(fill=tk.X, pady=5)
         
-        theme_btn = tk.Button(button_frame, text="🎨 THEME", font=('Arial', 11, 'bold'),
-                             bg='#16a085', fg='white', padx=15, pady=10,
-                             command=self.toggle_theme, relief=tk.RAISED, bd=2)
+        theme_btn = tk.Button(
+            button_frame,
+            text="🎨 THEME",
+            font=('Arial', 11, 'bold'),
+            bg='#16a085',
+            fg='white',
+            padx=15,
+            pady=10,
+            command=self.toggle_theme,
+            relief=tk.RAISED,
+            bd=2
+        )
         theme_btn.pack(fill=tk.X, pady=5)
         
-        quit_btn = tk.Button(button_frame, text="❌ QUIT", font=('Arial', 11, 'bold'),
-                            bg='#e74c3c', fg='white', padx=15, pady=10,
-                            command=self.window.quit, relief=tk.RAISED, bd=2)
+        quit_btn = tk.Button(
+            button_frame,
+            text="❌ QUIT",
+            font=('Arial', 11, 'bold'),
+            bg='#e74c3c',
+            fg='white',
+            padx=15,
+            pady=10,
+            command=self.window.quit,
+            relief=tk.RAISED,
+            bd=2
+        )
         quit_btn.pack(fill=tk.X, pady=5)
         
         self.update_timer()
@@ -407,7 +510,11 @@ class TicTacToeGUI:
     
     def change_difficulty(self):
         """Change game difficulty"""
-        diff_map = {'EASY': Difficulty.EASY, 'MEDIUM': Difficulty.MEDIUM, 'HARD': Difficulty.HARD}
+        diff_map = {
+            'EASY': Difficulty.EASY,
+            'MEDIUM': Difficulty.MEDIUM,
+            'HARD': Difficulty.HARD
+        }
         self.difficulty = diff_map[self.difficulty_var.get()]
         self.ai = MinimaxAI('O', 'X', self.difficulty)
     
@@ -421,12 +528,13 @@ class TicTacToeGUI:
         """Get statistics text"""
         s = self.stats.stats
         wr = (s['wins'] / max(1, s['games_played']) * 100) if s['games_played'] > 0 else 0
+        best_time = int(s['best_time']) if s['best_time'] != float('inf') else 0
         return f"""Total Games: {s['games_played']}
 Wins: {s['wins']} | Losses: {s['losses']}
 Draws: {s['draws']}
 Win Rate: {wr:.1f}%
 Streak: {s['win_streak']}
-Best Time: {int(s['best_time'])}s"""
+Best Time: {best_time}s"""
     
     def on_click(self, row, col):
         """Handle button click"""
@@ -482,7 +590,7 @@ Best Time: {int(s['best_time'])}s"""
             else:
                 self.current_combo = 0
                 self.stats.update_game('L', time_taken, self.difficulty_var.get())
-                msg = f"🤖 AI WINS!\nBetter luck next time!"
+                msg = "🤖 AI WINS!\nBetter luck next time!"
                 self.status_label.config(text="AI Won!", fg='#e74c3c')
                 self.highlight_winner(winner)
             
@@ -550,6 +658,7 @@ Best Time: {int(s['best_time'])}s"""
         """Show detailed statistics"""
         s = self.stats.stats
         wr = (s['wins'] / max(1, s['games_played']) * 100) if s['games_played'] > 0 else 0
+        best_time = int(s['best_time']) if s['best_time'] != float('inf') else 0
         
         stats_text = f"""
 ╔═══════════════════════════════╗
@@ -559,9 +668,9 @@ Best Time: {int(s['best_time'])}s"""
 ║ Wins: {s['wins']:<23} ║
 ║ Losses: {s['losses']:<20} ║
 ║ Draws: {s['draws']:<21} ║
-║ Win Rate: {wr:.1f}%<17} ║
+║ Win Rate: {wr:.1f}%              ║
 ║ Current Streak: {s['win_streak']:<12} ║
-║ Best Time: {int(s['best_time'])}s<18} ║
+║ Best Time: {best_time}s              ║
 ╠═══════════════════════════════╣
 ║ DIFFICULTY WINS               ║
 ║ Easy: {s['difficulty_wins']['EASY']:<21} ║
